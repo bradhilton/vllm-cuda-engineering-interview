@@ -11,26 +11,18 @@ template <typename scalar_t, bool IS_NEOX>
 inline __device__ void apply_token_rotary_embedding(
     scalar_t* __restrict__ arr, const scalar_t* __restrict__ cos_ptr,
     const scalar_t* __restrict__ sin_ptr, int rot_offset, int embed_dim) {
-  int x_index, y_index;
-  scalar_t cos, sin;
-  if (IS_NEOX) {
-    // GPT-NeoX style rotary embedding.
-    x_index = rot_offset;
-    y_index = embed_dim + rot_offset;
-    cos = VLLM_LDG(cos_ptr + x_index);
-    sin = VLLM_LDG(sin_ptr + x_index);
-  } else {
-    // GPT-J style rotary embedding.
-    x_index = 2 * rot_offset;
-    y_index = 2 * rot_offset + 1;
-    cos = VLLM_LDG(cos_ptr + x_index / 2);
-    sin = VLLM_LDG(sin_ptr + x_index / 2);
-  }
-
-  const scalar_t x = arr[x_index];
-  const scalar_t y = arr[y_index];
-  arr[x_index] = x * cos - y * sin;
-  arr[y_index] = y * cos + x * sin;
+  // INTERVIEW PROBLEM 4: Rotary Position Embedding (RoPE)
+  //
+  // Apply 2D rotation to pairs of elements: x' = x*cos - y*sin, y' = y*cos + x*sin
+  //
+  // Two pairing styles based on IS_NEOX:
+  //   NeoX (true):  pairs (i, i+embed_dim), cos/sin index = i
+  //   GPT-J (false): pairs (2i, 2i+1), cos/sin index = i
+  //
+  // rot_offset identifies which pair this call handles (0 to embed_dim-1).
+  // Rotate in-place in arr. Use VLLM_LDG() for cos/sin loads.
+  
+  // TODO: Implement
 }
 
 template <typename scalar_t, bool IS_NEOX>

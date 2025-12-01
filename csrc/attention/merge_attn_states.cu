@@ -75,45 +75,25 @@ __global__ void merge_attn_states_kernel(
     return;
   }
 
-  p_lse = p_lse - max_lse;
-  s_lse = s_lse - max_lse;
-  const float p_se = expf(p_lse);
-  const float s_se = expf(s_lse);
-  const float out_se = p_se + s_se;
-  const float p_scale = p_se / out_se;
-  const float s_scale = s_se / out_se;
-
-  if (pack_offset < head_size) {
-    // Pack 128b load
-    pack_128b_t p_out_pack = reinterpret_cast<const pack_128b_t*>(
-        prefix_head_ptr)[pack_offset / pack_size];
-    pack_128b_t s_out_pack = reinterpret_cast<const pack_128b_t*>(
-        suffix_head_ptr)[pack_offset / pack_size];
-    pack_128b_t o_out_pack;
-
-#pragma unroll
-    for (uint i = 0; i < pack_size; ++i) {
-      // Always use float for FMA to keep high precision.
-      // half(uint16_t), bfloat16, float -> float.
-      const float p_out_f =
-          vllm::to_float(reinterpret_cast<const scalar_t*>(&p_out_pack)[i]);
-      const float s_out_f =
-          vllm::to_float(reinterpret_cast<const scalar_t*>(&s_out_pack)[i]);
-      // fma: a * b + c = p_out_f * p_scale + (s_out_f * s_scale)
-      const float o_out_f = p_out_f * p_scale + (s_out_f * s_scale);
-      // float -> half(uint16_t), bfloat16, float.
-      vllm::from_float(reinterpret_cast<scalar_t*>(&o_out_pack)[i], o_out_f);
-    }
-
-    // Pack 128b storage
-    reinterpret_cast<pack_128b_t*>(output_head_ptr)[pack_offset / pack_size] =
-        o_out_pack;
-  }
-  // We only need to write to output_lse once per head.
-  if (output_lse != nullptr && pack_idx == 0) {
-    float out_lse = logf(out_se) + max_lse;
-    output_lse[head_idx * num_tokens + token_idx] = out_lse;
-  }
+  // INTERVIEW PROBLEM 5: Merge Attention States
+  //
+  // Merge prefix and suffix attention outputs using log-sum-exp for stability.
+  //
+  // Given p_lse/s_lse (log-sum-exp values) and max_lse = max(p_lse, s_lse):
+  //   - Compute weights: w_p = exp(p_lse - max_lse), w_s = exp(s_lse - max_lse)
+  //   - Normalize: p_scale = w_p/(w_p+w_s), s_scale = w_s/(w_p+w_s)  
+  //   - Blend: output = p_scale * prefix_output + s_scale * suffix_output
+  //   - If output_lse != nullptr: output_lse = log(w_p + w_s) + max_lse
+  //
+  // Use 128-bit vectorized loads/stores (pack_128b_t). Convert elements to
+  // float for blending via vllm::to_float() / vllm::from_float().
+  // Only write output_lse once per head (when pack_idx == 0).
+  //
+  // Variables available: p_lse, s_lse, max_lse, pack_offset, pack_size, pack_idx,
+  // prefix_head_ptr, suffix_head_ptr, output_head_ptr, head_size, head_idx,
+  // num_tokens, token_idx, output_lse
+  
+  // TODO: Implement
 }
 
 }  // namespace vllm

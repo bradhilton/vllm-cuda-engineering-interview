@@ -33,8 +33,13 @@ __global__ void act_and_mul_kernel(
 
 template <typename T>
 __device__ __forceinline__ T silu_kernel(const T& x) {
-  // x * sigmoid(x)
-  return (T)(((float)x) / (1.0f + expf((float)-x)));
+  // INTERVIEW PROBLEM 1: SiLU Activation
+  // 
+  // Implement silu(x) = x * sigmoid(x)
+  // Compute in float precision, return as type T.
+  
+  // TODO: Implement
+  return (T)0;
 }
 
 template <typename T>
